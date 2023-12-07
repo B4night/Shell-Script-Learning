@@ -11,6 +11,23 @@
 9. **FNR**: "File Number of Records" - This is similar to NR, but it gets reset to 1 for each new file processed in a multi-file `awk` command.
 10. **$0**: This represents the entire current record. So, if you print `$0`, you're printing the whole line.
 
+## The difference between NF and NR
+
+To simplify:
+
+- NF: number of columns
+- NR: number of lines
+
+The number will be changed if FS and RS are changed.
+
+
+
+# basic format
+
+awk programs are made of one or more `pattern { action }` statements.
+
+If pattern is true, then action will be executed. Otherwise action will not be executed.
+
 # 2 concepts
 
 FS and RS.
@@ -64,10 +81,10 @@ awk '{split($2,a,",");for (i in a) print $1"\t"a[i]}' filename
 # split $2 with ',' and then we get an array. print the first column and '\t' and each element in this array
 
 # usage
-$ /tmp cat tmp 
+$ cat tmp 
 aaa;bb,cc;dd
 
-$ /tmp awk -F';' '{split($2,a,","); for(i in a) print $1"\t"a[i]}' tmp
+$ awk -F';' '{split($2,a,","); for(i in a) print $1"\t"a[i]}' tmp
 aaa	bb
 aaa	cc
 ```
@@ -107,4 +124,110 @@ awk '!/bbo/' file
 awk '{NF-=1}; {print}' file
 # NF: number of fields
 ```
+
+# `'pattern {action};'` statement
+
+pattern need to be non-zero so that the action statment will execute
+
+``` shell
+awk -F';' 'NF > 2 {NF -= 2}; {print}' filename
+
+# logical and
+awk 'NR > 1 && NR < 4 {print}' filename
+
+# remove lines that only contain whitespeces
+awk 'NF' filename
+
+# perform calculations
+awk '{SUM = SUM + $1}; END {print SUM}' filename
+# AWK support the standard arithmetical operators. And will convert values between text and numbers automatically depending on the context. 
+```
+
+## also, pattern can be regex
+
+``` shell
+# find lines that at least contain one char
+awk '/./ {COUNT += 1}; END {print COUNT}' filename
+
+# match lines containing specific words
+awk '/word/ { print }' filename
+
+# match lines where a specific field has a pattern
+awk '$2 ~ /word/ ' filename
+
+# invert match
+awk '! /word/' fielname
+```
+
+# arrays in awk
+
+Arrays is awk are like map in C++.
+
+``` shell
+awk '+$1 { CREDITS[$3]+=$1 }
+     END { for (NAME in CREDITS) print NAME, CREDITS[NAME] }' FS=, file
+# +$1 is a condition, means that if $1 is numeric, then the action will be done.
+# CREDITS is an array. Key-value pair
+```
+
+``` shell
+# print duplicate lines
+awk 'a[$0]++' filename
+# explination
+# a[$0]++ is a condition, if it returns non-zero, then {print} the line
+# a[$0] returns old value. Its behavior is the same with C++'s ++ operation
+
+
+# remove duplicate lines(print duplicate lines only once)
+awk '!a[$0]++' filename
+```
+
+# field formatting
+
+``` shell
+awk '+$1 { printf("%s ", $3) }' filename
+
+awk '+$1 { printf("%10s | %4d\n",  $3, $1) }' FS=, file
+```
+
+# awk's string functions
+
+``` shell
+# toupper
+awk '$3 { print toupper($0); }' file
+
+# change part of the string
+awk '{ $3 = toupper(substr($3,1,1)) substr($3,2) } $3' FS=, OFS=, file
+
+# split fields into sub-fields
+awk '+$1 { split($2, DATE, " "); print $1,$3, DATE[2], DATE[3] }' FS=, OFS=, file
+# this means using whitespaces to splic $2, then stores the values in array DATE
+
+# search and replace patterns with awk commands
+awk '+$1 { gsub(/ +/, "-", $2); print }' FS=, file
+# search `/ +/` pattern in $2 and then replace it with "-"
+```
+
+# call external functoin
+
+``` shell
+awk 'BEGIN{ printf("UPDATED: "); system("date") }; /^UPDATED:/ { next }; { print }' filename
+```
+
+1. The command starts by printing "UPDATED: " followed by the current date and time.
+2. Then, it reads `file` line by line.
+3. Any line that starts with "UPDATED:" is skipped (not printed).
+4. All other lines are printed as they are.
+5. Use `system()` to call external command
+
+# add field
+
+``` shell
+awk '+$1 { CMD | getline $5; close(CMD); print }' CMD="uuid -v4" FS=, OFS=, file
+```
+
+- The command reads the specified `file`.
+- For each line where the first field is a non-zero number, it executes the `uuid -v4` command to generate a new UUID.
+- This UUID replaces the value of the fifth field in the line.
+- The modified line is then printed out, with fields separated by commas.
 
